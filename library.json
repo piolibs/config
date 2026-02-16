@@ -1,0 +1,57 @@
+{
+    "name": "config",
+    "version": "1.0.0",
+    "description": "Config parameters serialization to stream storage",
+    "keywords": "config, storage, serialization, settings",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/piolibs/config.git"
+    },
+    "authors": [
+        {
+            "name": "Dmitry Korobkov",
+            "email": "dmitry.korobkov.nn@gmail.com",
+            "url": "https://github.com/dk6v",
+            "maintainer": true
+        }
+    ],
+    "license": "GPL-3.0",
+    "frameworks": "arduino",
+    "platforms": [
+        "arduino",
+        "espressif8266"
+    ],
+    "dependencies": {
+        "console": "https://github.com/piolibs/console.git",
+        "macros": "https://github.com/piolibs/macros.git"
+    },
+    "build": {
+        "libArchive": false,
+        "srcDir": "src",
+        "includeDir": "include",
+        "flags": [
+            "-Iinclude"
+        ],
+        "srcFilter": [
+            "+<**/*.cpp>"
+        ]
+    },
+    "headers": [
+        "config.h"
+    ],
+    "export": {
+        "include": [
+            "src/**/*",
+            "include/*",
+            "LICENSE",
+            "README.md"
+        ],
+        "exclude": [
+            "test/*",
+            ".gitignore"
+        ]
+    },
+    "examples": [
+        "examples/*/*.ino"
+    ]
+}
