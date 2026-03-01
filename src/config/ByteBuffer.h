@@ -8,10 +8,15 @@
  */
 
 #pragma once
+#pragma push_macro("LOG_MODULE")
+
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:B"
 
 #include <iterator>
 #include <memory>
 #include <macros.h>
+#include <console.h>
 
 namespace config {
 
@@ -114,3 +119,5 @@ unsigned short ByteBuffer::write(const iterator& it, const Type value)
 }
 
 }  // namespace
+
+#pragma pop_macro("LOG_MODULE")

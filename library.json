@@ -22,8 +22,9 @@
         "espressif8266"
     ],
     "dependencies": {
+        "macros": "https://github.com/piolibs/macros.git",
         "console": "https://github.com/piolibs/console.git",
-        "macros": "https://github.com/piolibs/macros.git"
+        "checksum": "https://github.com/piolibs/checksum.git"
     },
     "build": {
         "libArchive": false,

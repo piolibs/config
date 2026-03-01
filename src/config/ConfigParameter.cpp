@@ -7,6 +7,9 @@
  * (at your option) any later version.
  */
 
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:P"
+
 #include <vector>
 #include <console.h>
 #include <checksum.h>
@@ -21,36 +24,39 @@ using namespace config;
 // Class ConfigParameterBase
 
 ConfigParameterBase::ConfigParameterBase(ConfigParameterType type, unsigned char id, bool isValid = false)
-    : mType(type), mId(id), mIsValid(isValid) {}
+  : mType(type), mId(id), mIsValid(isValid)
+{}
 
-unsigned char ConfigParameterBase::getId() {
-
+unsigned char ConfigParameterBase::getId()
+{
     return this->mId;
 }
 
-ConfigParameterType ConfigParameterBase::getType() {
-
+ConfigParameterType ConfigParameterBase::getType()
+{
     return this->mType;
 }
 
-bool ConfigParameterBase::isValid() {
-
+bool ConfigParameterBase::isValid()
+{
     return mIsValid;
 }
 
-ByteBuffer::iterator ConfigParameterBase::read(ByteBuffer::iterator &it) {
-
+ByteBuffer::iterator ConfigParameterBase::read(ByteBuffer::iterator &it)
+{
     ByteBuffer::iterator nextIt = it;
 
     char id = *nextIt++;
     char type = *nextIt++;
 
-    if (id != mId) {
+    if (id != mId)
+    {
         LOG("Skip parameter: id=%d (!= %d)", mId, id);
         return it;
     }
 
-    if (type != static_cast<char>(mType)) {
+    if (type != static_cast<char>(mType))
+    {
         LOG("Skip parameter: id=%d, type=%d (!= %d)", mId, mType, type);
         return it;
     }
@@ -58,8 +64,8 @@ ByteBuffer::iterator ConfigParameterBase::read(ByteBuffer::iterator &it) {
     return nextIt;
 }
 
-ByteBuffer::iterator ConfigParameterBase::write(ByteBuffer::iterator &it) {
-
+ByteBuffer::iterator ConfigParameterBase::write(ByteBuffer::iterator &it)
+{
     ByteBuffer::iterator nextIt = it;
 
     /* LOG("write: id=0x%x, type=0x%x", mId, mType); */
@@ -85,42 +91,44 @@ ConfigParameter<char>::ConfigParameter(unsigned char id, const char &value)
 {};
 
 template <>
-ByteBuffer::iterator ConfigParameter<char>::read(ByteBuffer::iterator &it) {
-
+ByteBuffer::iterator ConfigParameter<char>::read(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
 
-    if (nextIt != it) {
-
-        mValue = *nextIt++;
+    if (nextIt != it)
+    {
+        value = *nextIt++;
 
         char checksum = Checksum(Checksum::CRC8)
-            .calculate(reinterpret_cast<char *>(&mValue), sizeof(char));
+            .calculate(reinterpret_cast<char *>(&value), sizeof(char));
 
-        if (checksum != *nextIt++) {
-
+        if (checksum != *nextIt++)
+        {
             LOG("Invalid checksum (0x%X): id=%d, type=%d",
                         checksum, mId, mType);
             return it;
         }
 
-        LOG("CFG read [%02d]: %d, CS: 0x%X", mId, mValue, checksum);
+        LOG("CFG read [%02d]: %d, CS: 0x%X", mId, value, checksum);
     }
 
     return nextIt;
 }
 
 template <>
-ByteBuffer::iterator ConfigParameter<char>::write(ByteBuffer::iterator &it) {
-
+ByteBuffer::iterator ConfigParameter<char>::write(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
     char checksum = Checksum(Checksum::CRC8)
-        .calculate(reinterpret_cast<char *>(&mValue), sizeof(char));
+        .calculate(reinterpret_cast<char *>(&value), sizeof(char));
 
-    *nextIt++ = mValue;
+    *nextIt++ = value;
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: %d, CS: 0x%X", mId, mValue, checksum);
+    LOG("CFG write [%02d]: %d, CS: 0x%X", mId, value, checksum);
 
     return nextIt;
 }
@@ -140,51 +148,53 @@ ConfigParameter<int>::ConfigParameter(unsigned char id, const int &value)
 {};
 
 template <>
-ByteBuffer::iterator ConfigParameter<int>::read(ByteBuffer::iterator &it) {
-
+ByteBuffer::iterator ConfigParameter<int>::read(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
 
-    if (nextIt != it) {
-
-        mValue = 0;
+    if (nextIt != it)
+    {
+        value = 0;
 
         for (unsigned char ix = 0; ix < sizeof(int); ++ix) {
 
-            mValue |= BYTE_SET(ix, 0x00, *nextIt++);
+            value |= BYTE_SET(ix, 0x00, *nextIt++);
         }
 
         char checksum = Checksum(Checksum::CRC8)
-            .calculate(reinterpret_cast<char *>(&mValue),sizeof(int));
+            .calculate(reinterpret_cast<char *>(&value),sizeof(int));
 
-        if (checksum != *nextIt++) {
-
+        if (checksum != *nextIt++)
+        {
             LOG("Invalid checksum (0x%X): id=%d, type=%d",
                         checksum, mId, mType);
             return it;
         }
 
-        LOG("CFG read [%02d]: %d, CS: 0x%X", mId, mValue, checksum);
+        LOG("CFG read [%02d]: %d, CS: 0x%X", mId, value, checksum);
     }
 
     return nextIt;
 }
 
 template <>
-ByteBuffer::iterator ConfigParameter<int>::write(ByteBuffer::iterator &it) {
-
+ByteBuffer::iterator ConfigParameter<int>::write(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
     char checksum = Checksum(Checksum::CRC8)
-        .calculate(reinterpret_cast<char*>(&mValue), sizeof(int));
+        .calculate(reinterpret_cast<char*>(&value), sizeof(int));
 
-    for (unsigned char ix = 0; ix < sizeof(int); ++ix) {
-
-        *nextIt++ = NBYTE(ix, mValue);
+    for (unsigned char ix = 0; ix < sizeof(int); ++ix)
+    {
+        *nextIt++ = NBYTE(ix, value);
     }
 
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: %d, CS: 0x%X", mId, mValue, checksum);
+    LOG("CFG write [%02d]: %d, CS: 0x%X", mId, value, checksum);
 
     return nextIt;
 }
@@ -206,32 +216,33 @@ ConfigParameter<std::string>::ConfigParameter(unsigned char id,
 
 template <>
 ByteBuffer::iterator
-ConfigParameter<std::string>::read(ByteBuffer::iterator &it) {
-
+ConfigParameter<std::string>::read(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
 
-    if (nextIt != it) {
-
+    if (nextIt != it)
+    {
         char length = *nextIt++;
 
-        mValue.clear();
+        value.clear();
 
-        for (unsigned char ix = 0; ix < length; ++ix) {
-
-            mValue += *nextIt++;
+        for (unsigned char ix = 0; ix < length; ++ix)
+        {
+            value += *nextIt++;
         }
 
         char checksum = Checksum(Checksum::CRC8)
-            .calculate(mValue.c_str(), mValue.length());
+            .calculate(value.c_str(), value.length());
 
-        if (checksum != *nextIt++) {
-
+        if (checksum != *nextIt++)
+        {
             LOG("Invalid checksum (0x%X): id=%d, type=%d",
                         checksum, mId, mType);
             return it;
         }
 
-        LOG("CFG read [%02d]: '%s', CS: 0x%X", mId, mValue.c_str(), checksum);
+        LOG("CFG read [%02d]: '%s', CS: 0x%X", mId, value.c_str(), checksum);
     }
 
     return nextIt;
@@ -239,23 +250,24 @@ ConfigParameter<std::string>::read(ByteBuffer::iterator &it) {
 
 template <>
 ByteBuffer::iterator
-ConfigParameter<std::string>::write(ByteBuffer::iterator &it) {
-
+ConfigParameter<std::string>::write(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
     char checksum = Checksum(Checksum::CRC8)
-        .calculate(mValue.c_str(), mValue.length());
+        .calculate(value.c_str(), value.length());
 
-    *nextIt++ = mValue.length();
+    *nextIt++ = value.length();
 
-    for (unsigned char ix = 0; ix < mValue.length(); ++ix) {
-
-        *nextIt++ = mValue[ix];
+    for (unsigned char ix = 0; ix < value.length(); ++ix)
+    {
+        *nextIt++ = value[ix];
     }
 
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: '%s', CS: 0x%X", mId, mValue.c_str(), checksum);
+    LOG("CFG write [%02d]: '%s', CS: 0x%X", mId, value.c_str(), checksum);
 
     return nextIt;
 }
@@ -277,12 +289,13 @@ ConfigParameter<IPAddress>::ConfigParameter(unsigned char id,
 
 template <>
 ByteBuffer::iterator
-ConfigParameter<IPAddress>::read(ByteBuffer::iterator &it) {
-
+ConfigParameter<IPAddress>::read(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
 
-    if (nextIt != it) {
-
+    if (nextIt != it)
+    {
         unsigned int address = 0;
 
         for (unsigned char ix = 0; ix < sizeof(int); ++ix)
@@ -293,14 +306,14 @@ ConfigParameter<IPAddress>::read(ByteBuffer::iterator &it) {
         char checksum = Checksum(Checksum::CRC8)
             .calculate(reinterpret_cast<char*>(&address), sizeof(int));
 
-        if (checksum != static_cast<char>(*nextIt++)) {
-
+        if (checksum != static_cast<char>(*nextIt++))
+        {
             LOG("Invalid checksum (0x%X): id=%d, type=%d",
                         checksum, mId, mType);
             return it;
         }
 
-        mValue = address;
+        value = address;
 
         LOG("CFG read [%02d]: %s, CS: 0x%X",
                     mId, IPAddress(address).toString().c_str(), checksum);
@@ -311,13 +324,15 @@ ConfigParameter<IPAddress>::read(ByteBuffer::iterator &it) {
 
 template <>
 ByteBuffer::iterator
-ConfigParameter<IPAddress>::write(ByteBuffer::iterator &it) {
-
+ConfigParameter<IPAddress>::write(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
-    unsigned int address = static_cast<unsigned int>(mValue);
 
-    for (unsigned char ix = 0; ix < sizeof(int); ++ix) {
+    unsigned int address = static_cast<unsigned int>(value);
 
+    for (unsigned char ix = 0; ix < sizeof(int); ++ix)
+    {
         *nextIt++ = NBYTE(ix, address);
     }
 
@@ -326,7 +341,7 @@ ConfigParameter<IPAddress>::write(ByteBuffer::iterator &it) {
 
     *nextIt++ = checksum;
     LOG("CFG write [%02d]: %s, CS: 0x%X",
-                mId, mValue.toString().c_str(), checksum);
+                mId, value.toString().c_str(), checksum);
 
     return nextIt;
 }
@@ -337,36 +352,26 @@ ConfigParameter<PersistCounter>::ConfigParameter(unsigned char id)
   : ConfigParameterBase(ConfigParameterType::COUNTER, id),
     ConfigParameterValue(PersistCounter(1))
 {
-    LOG("ConfigParameter<PersistCounter> ()");
+    LOGD("%s", __func__);
 }
 
 ConfigParameter<PersistCounter>::ConfigParameter(unsigned char id, const PersistCounter &counter)
   : ConfigParameterBase(ConfigParameterType::COUNTER, id),
     ConfigParameterValue(counter)
 {
-    LOG("ConfigParameter<PersistCounter> (PersistCounter&)");
-}
-
-ConfigParameter<PersistCounter>::operator PersistCounter()
-{
-    return mValue;
-}
-
-PersistCounter &ConfigParameter<PersistCounter>::operator=(const PersistCounter &value)
-{
-    this->mValue = value;
-    return this->mValue;
+    LOGD("%s", __func__);
 }
 
 ByteBuffer::iterator ConfigParameter<PersistCounter>::read(ByteBuffer::iterator &it)
 {
+    auto counter = this->get();
     auto nextIt = ConfigParameterBase::read(it);
 
-    nextIt = mValue.read(nextIt);
+    nextIt = counter.read(nextIt);
 
     char checksum = *nextIt++;
     char valid = Checksum(Checksum::CRC8)
-                     .calculate(reinterpret_cast<const char *>(&mValue.get()),
+                     .calculate(reinterpret_cast<const char *>(&counter.get()),
                                 sizeof(PersistCounter::Type));
     if (checksum != valid)
     {
@@ -375,24 +380,25 @@ ByteBuffer::iterator ConfigParameter<PersistCounter>::read(ByteBuffer::iterator 
         return it;
     }
 
-    LOG("CFG read [%02d]: %d, CS: 0x%X", mId, mValue.get(), checksum);
+    LOG("CFG read [%02d]: %d, CS: 0x%X", mId, counter.get(), checksum);
 
     return nextIt;
 }
 
 ByteBuffer::iterator ConfigParameter<PersistCounter>::write(ByteBuffer::iterator &it)
 {
+    auto counter = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
-    nextIt = mValue.write(nextIt);
+    nextIt = counter.write(nextIt);
 
     char checksum = Checksum(Checksum::CRC8)
-        .calculate(reinterpret_cast<const char*>(&mValue.get()),
+        .calculate(reinterpret_cast<const char*>(&counter.get()),
                    sizeof(PersistCounter::Type));
 
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: %u, CS: 0x%X", mId, mValue.get(), checksum);
+    LOG("CFG write [%02d]: %u, CS: 0x%X", mId, counter.get(), checksum);
 
     return nextIt;
 }

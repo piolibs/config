@@ -26,7 +26,7 @@ public:
     void commit();
     unsigned short size();
 
-    void dump(unsigned int limit);
+    void dump(unsigned int limit = -1 /* unlimited */);
 
 private:
     unsigned short mSize;

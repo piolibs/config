@@ -7,6 +7,9 @@
  * (at your option) any later version.
  */
 
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:E"
+
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <console.h>
@@ -45,27 +48,27 @@ void StorageEeprom::commit()
 }
 
 #if LOG_LEVEL >= LOG_LEVEL_DEBUG
-void StorageEeprom::dump(unsigned int limit = -1)
+void StorageEeprom::dump(unsigned int limit)
 {
-    console::format("** EEPROM (sz:%u) **", mSize);
+    LOGD_ADD("** EEPROM (sz:%u) **", mSize);
 
     for (size_t ix = 0; (ix < mSize) && (ix < limit); ++ix)
     {
         if ((ix % 16) == 0)
         {
-            console::flush();
-            console::format("%2u: ", (ix / 16));
+            LOGD_FLUSH();
+            LOGD_ADD("%2u: ", (ix / 16));
         }
         else if ((ix % 4) == 0)
         {
-            console::format(" ");
+            LOGD_ADD(" ");
         }
 
-        console::format("%02x", EEPROM.read(ix));
+        LOGD_ADD("%02x", EEPROM.read(ix));
     }
 
-    console::flush();
+    LOGD_FLUSH();
 }
 #else
-void StorageEeprom::dump(unsigned int limit = -1) {}
+void StorageEeprom::dump(unsigned int limit) {}
 #endif

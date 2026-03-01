@@ -8,6 +8,10 @@
  */
 
 #pragma once
+#pragma push_macro("LOG_MODULE")
+
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:P"
 
 #include <type_traits>
 #include <vector>
@@ -56,9 +60,17 @@ protected:
 template <typename T>
 class ConfigParameterValue {
 public:
-    T& get() { return mValue; }
+    ConfigParameterValue() = default;
+    explicit ConfigParameterValue(const T &value) : mValue(value) {}
+    explicit ConfigParameterValue(T &&value) : mValue(std::move(value)) {}
+
+    T& value() { return mValue; }
+
+    const T& get() const { return mValue; }
+
     void set(const T &value) { mValue = value; }
-public:
+    void set(T &&value) { mValue = std::move(value); }
+protected:
     T mValue;
 };
 
@@ -67,10 +79,8 @@ class ConfigParameter
   : public ConfigParameterBase,
     public ConfigParameterValue<T> {
 public:
-    using ConfigParameterValue<T>::mValue;
-
-    ConfigParameter(unsigned char id = INVALID_ID);
-    ConfigParameter(unsigned char id, const T& value);
+    explicit ConfigParameter(unsigned char id = INVALID_ID);
+    explicit ConfigParameter(unsigned char id, const T& value);
 
     ByteBuffer::iterator read(ByteBuffer::iterator& it) override;
     ByteBuffer::iterator write(ByteBuffer::iterator& it) override;
@@ -87,70 +97,53 @@ public:
     ConfigParameter(unsigned char id = INVALID_ID);
     ConfigParameter(unsigned char id, const std::vector<T>& value);
 
-    operator std::vector<T>();
-    std::vector<T> &operator=(const std::vector<T> &value);
-
     ByteBuffer::iterator read(ByteBuffer::iterator& it) override;
     ByteBuffer::iterator write(ByteBuffer::iterator& it) override;
-
-private:
-    std::vector<T> mValue;
-    bool mIsValid;
 };
 
 template <typename T>
 ConfigParameter<std::vector<T>>::ConfigParameter(unsigned char id)
-    : ConfigParameterBase(ConfigParameterType::ARRAY, id, false), mValue({}) {
-
+  : ConfigParameterBase(ConfigParameterType::ARRAY, id, false),
+    ConfigParameterValue<std::vector<T>>()
+{
     static_assert(std::is_arithmetic<T>::value, "Not an arithmetic type");
 };
 
 template <typename T>
 ConfigParameter<std::vector<T>>::ConfigParameter(unsigned char id,
                                                  const std::vector<T> &value)
-    : ConfigParameterBase(ConfigParameterType::ARRAY, id, true), mValue(value) {
-
+  : ConfigParameterBase(ConfigParameterType::ARRAY, id, true),
+    ConfigParameterValue<std::vector<T>>(value)
+{
     static_assert(std::is_arithmetic<T>::value, "Not an arithmetic type");
 };
 
 template <typename T>
-ConfigParameter<std::vector<T>>::operator std::vector<T>() {
-
-    return mValue;
-}
-
-template <typename T>
-std::vector<T> &ConfigParameter<std::vector<T>>::operator=(const std::vector<T>& value) {
-
-    this->mValue = value;
-    return this->mValue;
-}
-
-template <typename T>
 ByteBuffer::iterator
-ConfigParameter<std::vector<T>>::read(ByteBuffer::iterator &it) {
-
+ConfigParameter<std::vector<T>>::read(ByteBuffer::iterator &it)
+{
+    auto vector = this->get();
     auto nextIt = ConfigParameterBase::read(it);
 
-    if (nextIt != it) {
-
+    if (nextIt != it)
+    {
         char length = *nextIt++;
 
-        mValue.clear();
+        vector.clear();
 
         for (unsigned char ix = 0; ix < length; ++ix) {
 
-            T currValue = 0;
+            T value = 0;
 
             for (unsigned char ix = 0; ix < sizeof(T); ++ix) {
-                currValue |= BYTE_SET(ix, 0x00, *nextIt++);
+                value |= BYTE_SET(ix, 0x00, *nextIt++);
             }
 
-            mValue.push_back(currValue);
+            vector.push_back(value);
         }
 
         char checksum = checksum::Checksum(checksum::Checksum::CRC8)
-                            .calculate<typename std::vector<T>::iterator>(mValue.begin(), mValue.end());
+                            .calculate<typename std::vector<T>::iterator>(vector.begin(), vector.end());
 
         if (checksum != *nextIt++) {
 
@@ -159,15 +152,12 @@ ConfigParameter<std::vector<T>>::read(ByteBuffer::iterator &it) {
             return it;
         }
 
-#if LOG_LEVEL >= LOG_LEVEL_DEBUG
-        console::format("CFG <= R [%02d]:", mId);
-        for (auto &value: mValue) {
-            console::format(" %x", value);
+        LOG_ADD("CFG <= R [%02d]:", mId);
+        for (auto &value : vector) {
+            LOG_ADD(" %x", value);
         }
-        console::format(", sz=%d, CS=0x%X", mValue.size(), checksum);
-        console::flush();
-        delay(500);
-#endif
+        LOG_ADD(", sz=%d, CS=0x%X", vector.size(), checksum);
+        LOG_FLUSH();
     }
 
     return nextIt;
@@ -177,31 +167,31 @@ template <typename T>
 ByteBuffer::iterator
 ConfigParameter<std::vector<T>>::write(ByteBuffer::iterator &it) {
 
+    auto vector = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
     char checksum = checksum::Checksum(checksum::Checksum::CRC8)
-                        .calculate<typename std::vector<T>::iterator>(mValue.begin(), mValue.end());
+                        .calculate<typename std::vector<T>::iterator>(vector.begin(), vector.end());
 
-    *nextIt++ = mValue.size();
+    *nextIt++ = vector.size();
 
-    for (unsigned char ix = 0; ix < mValue.size(); ++ix) {
+    for (unsigned char ix = 0; ix < vector.size(); ++ix)
+    {
         for (unsigned char jx = 0; jx < sizeof(T); ++jx) {
 
-            *nextIt++ = mValue[ix];
+            *nextIt++ = vector[ix];
         }
     }
 
     *nextIt++ = checksum;
 
-#if LOG_LEVEL >= LOG_LEVEL_DEBUG
-    console::format("CFG => W [%02d]:", mId);
-    for (auto &value: mValue) {
-        console::format(" %x", value);
+    LOG_ADD("CFG => W [%02d]:", mId);
+    for (auto &value : vector) {
+        LOG_ADD(" %x", value);
     }
-    console::format(", sz=%d, CS=0x%X", mValue.size(), checksum);
-    console::flush();
-    delay(500);
-#endif
+    LOG_ADD(", sz=%d, CS=0x%X", vector.size(), checksum);
+    LOG_FLUSH();
+
     return nextIt;
 }
 
@@ -213,16 +203,13 @@ class ConfigParameter<PersistCounter>
     public ConfigParameterValue<PersistCounter>
 {
 public:
-    using ConfigParameterValue<PersistCounter>::mValue;
-
     ConfigParameter(unsigned char id = INVALID_ID);
     ConfigParameter(unsigned char id, const PersistCounter& counter);
-
-    operator PersistCounter();
-    PersistCounter &operator=(const PersistCounter& value);
 
     ByteBuffer::iterator read(ByteBuffer::iterator &it);
     ByteBuffer::iterator write(ByteBuffer::iterator &it);
 };
 
 } // namespace
+
+#pragma pop_macro("LOG_MODULE")

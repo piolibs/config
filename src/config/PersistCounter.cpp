@@ -7,6 +7,9 @@
  * (at your option) any later version.
  */
 
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:C"
+
 #include <macros/byte.h>
 #include <console.h>
 
@@ -18,15 +21,13 @@ PersistCounter::PersistCounter(unsigned char size)
   : mValue(0),
     mSize(size),
     mSlot(0)
-{
-    LOG("PersistCounter (constructor), sz: %u", size);
-}
+{}
 
 ByteBuffer::iterator PersistCounter::read(ByteBuffer::iterator &it)
 {
     auto nextIt = it;
 
-    LOG(" [r] begin: %u", nextIt.mCursor);
+    LOGD("read start: cursor=%u", nextIt.mCursor);
 
     if ((*nextIt++ == FLAG) && (*nextIt++ == sizeof(Type)))
     {
@@ -43,24 +44,22 @@ ByteBuffer::iterator PersistCounter::read(ByteBuffer::iterator &it)
             {
                 mSlot = sx;
 
-                LOG(" [r] size:%u slot:%u value:%u", mSize, mSlot, mValue);
+                LOGD("read: size=%u slot=%u value=%u", mSize, mSlot, mValue);
 
                 // Skip rest slots and flag
                 nextIt += ((mSize - 1) - sx) * sizeof(Type) + 1;
 
-                LOG(" [r] end: %u", nextIt.mCursor);
+                LOGD("read next: cursor=%u", nextIt.mCursor);
                 return nextIt;
             }
         }
     }
 
-    LOG(" [r] not found, use defaults");
-
-    // Set default values otherwise
+    LOGD("read error: not found, use defaults");
     mValue = 0;
     mSlot = 0;
 
-    LOG(" [r] end: %u", it.mCursor);
+    LOGD("read end: cursor=%u", it.mCursor);
     return it;
 }
 

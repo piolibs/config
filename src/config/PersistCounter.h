@@ -8,6 +8,10 @@
  */
 
 #pragma once
+#pragma push_macro("LOG_MODULE")
+
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:C"
 
 #include <Arduino.h>
 
@@ -50,3 +54,5 @@ namespace config
     };
 
 } // namespace
+
+#pragma pop_macro("LOG_MODULE")

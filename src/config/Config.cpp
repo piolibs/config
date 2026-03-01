@@ -7,6 +7,9 @@
  * (at your option) any later version.
  */
 
+#undef LOG_MODULE
+#define LOG_MODULE "CFG"
+
 #include <string>
 #include <console.h>
 
@@ -15,19 +18,33 @@
 using namespace console;
 using namespace config;
 
-Config::Config()
-    : mParameters() {
-
-    add(new ConfigParameter<char>(0, 0xA7));
+Config::Config() : mParameters()
+{
+    add<char>(UNDEFINED, 0xA7);
 }
 
-Config& Config::write(ByteBuffer& buffer) {
+bool Config::hasValue(unsigned char id) const
+{
+    LOGV("%s", __func__);
+    auto it = mParameters.find(id);
+    return (it == mParameters.end()) ? false : true;
+}
 
+bool Config::remove(unsigned char id)
+{
+    LOGV("%s", __func__);
+    return mParameters.erase(id) > 0;
+}
+
+Config& Config::write(ByteBuffer& buffer)
+{
+    LOGV("%s", __func__);
     ByteBuffer::iterator it = buffer.begin();
 
-    for (auto & [ key, parameter]: mParameters) {
-
-        if (!it.isValid()) {
+    for (auto & [ key, parameter]: mParameters)
+    {
+        if (!it.isValid())
+        {
             LOG("Write failed, invalid iterator");
             break;
         }
@@ -40,13 +57,15 @@ Config& Config::write(ByteBuffer& buffer) {
     return *this;
 }
 
-Config& Config::read(ByteBuffer& buffer) {
-
+Config& Config::read(ByteBuffer& buffer)
+{
+    LOGV("%s", __func__);
     ByteBuffer::iterator it = buffer.begin();
 
-    for (auto & [ key, parameter]: mParameters) {
-
-        if (!it.isValid()) {
+    for (auto & [ key, parameter]: mParameters)
+    {
+        if (!it.isValid())
+        {
             break;
         }
 

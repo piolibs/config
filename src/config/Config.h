@@ -8,10 +8,15 @@
  */
 
 #pragma once
+#pragma push_macro("LOG_MODULE")
+
+#undef LOG_MODULE
+#define LOG_MODULE "CFG"
 
 #include <map>
 #include <memory>
 #include <Arduino.h>
+#include <console.h>
 #include <checksum.h>
 
 #include "ConfigParameter.h"
@@ -29,31 +34,48 @@ private:
     Config& operator= (Config const&) = delete;
 
 public:
+    enum ID : unsigned char;
+
     static Config& getInstance() {
         static Config config;
         return config;
     }
 
+    //--- Add/Remove parameters ---
     template<typename T>
-    Config& add(ConfigParameter<T>* parameter_p);
+    Config& add(unsigned char id, const T& value);
+
+    bool remove(unsigned char id);
+
+    //--- Query existence ---
+    bool hasValue(unsigned char id) const;
+
+    //--- Find and read values ---
+    template<typename T>
+    T* find(unsigned char id) const;
 
     template<typename T>
-    Config& add(unsigned char id, const T &value);
+    T& value(unsigned char id);
 
     template<typename T>
-    T& get(uint8_t id);
+    const T& value(unsigned char id) const;
 
     template<typename T>
-    bool set(uint8_t id, const T& value);
+    T valueOr(unsigned char id, const T& defaultValue) const;
 
+    template<typename T>
+    T valueOr(unsigned char id, T&& defaultValue) const;
+
+    //--- Modify values ---
+    template<typename T>
+    bool set(unsigned char id, const T& value);
+
+    //--- Serialization ---
     Config& read(ByteBuffer& buffer);
     Config& write(ByteBuffer& buffer);
 
-public:
-    enum ID : unsigned char;
-
 private:
-    std::map<uint8_t, std::shared_ptr<ConfigParameterBase>> mParameters;
+    std::map<unsigned char, std::shared_ptr<ConfigParameterBase>> mParameters;
 };
 
 enum Config::ID : unsigned char
@@ -80,51 +102,98 @@ enum Config::ID : unsigned char
 };
 
 template<typename T>
-Config& Config::add(ConfigParameter<T>* parameter_p) {
-
-    mParameters.insert(std::pair<uint8_t, std::shared_ptr<ConfigParameterBase>>(
-        parameter_p->getId(),
-        std::make_shared<ConfigParameter<T>>(*parameter_p)));
-
-    return *this;
-}
-
-template<typename T>
-Config& Config::add(unsigned char id, const T &value) {
-
-    add<T>(new ConfigParameter<T>(id, value));
-    return *this;
-}
-
-template<typename T>
-T& Config::get(uint8_t id) {
-
-    for (auto & [ _, parameter]: mParameters) {
-
-        if (parameter->getId() == id) {
-            LOG("get: found %u", id);
-            return std::static_pointer_cast<ConfigParameter<T>>(parameter)->get();
-        }
-    }
-
-    LOG("get: not found %u", id);
-    return std::shared_ptr<ConfigParameter<T>>(new ConfigParameter<T>())->get();
-}
-
-template<typename T>
-bool Config::set(uint8_t id, const T& value)
+Config& Config::add(unsigned char id, const T &value)
 {
-    for (auto & [ _, parameter]: mParameters)
+    LOGV("%s", __func__);
+
+    auto it = mParameters.find(id);
+    if (it != mParameters.end())
     {
-        if (parameter->getId() == id)
-        {
-            LOG("set: found: %u", id);
-            *std::static_pointer_cast<ConfigParameter<T>>(parameter) = value;
-            return true;
-        }
+        LOGD("%s: id=%u found, update existing value", __func__, id);
+        auto ptr = std::static_pointer_cast<ConfigParameter<T>>(it->second);
+        ptr->set(value);
     }
-    LOG("set: not found %u", id);
+    else
+    {
+        LOGD("%s: id=%u not found, create new value", __func__, id);
+        auto ptr = std::make_shared<ConfigParameter<T>>(id, value);
+        mParameters.insert({id, ptr});
+    }
+
+    return *this;
+}
+
+template <typename T>
+T* Config::find(unsigned char id) const
+{
+    LOGV("%s", __func__);
+
+    auto it = mParameters.find(id);
+    if (it == mParameters.end())
+        return nullptr;
+
+    auto ptr = std::static_pointer_cast<ConfigParameter<T>>(it->second);
+    return ptr ? &(ptr->value()) : nullptr;
+}
+
+template <typename T>
+bool Config::set(unsigned char id, const T &value)
+{
+    LOGV("%s", __func__);
+    T *ptr = find<T>(id);
+    if (ptr != nullptr)
+    {
+        LOGD("%s: id=%u found", __func__, id);
+        *ptr = value;
+        return true;
+    }
+
+    LOGD("%s: id=%u not found", __func__, id);
     return false;
 }
 
+template <typename T>
+T& Config::value(unsigned char id)
+{
+    LOGV("%s", __func__);
+    auto it = mParameters.find(id);
+    if (it == mParameters.end())
+    {
+        LOGE("%s: id=%u not found", __func__, id);
+        assert(false);
+    }
+    return std::static_pointer_cast<ConfigParameter<T>>(it->second)->value();
+}
+
+template <typename T>
+const T& Config::value(unsigned char id) const
+{
+    LOGV("%s", __func__);
+    auto it = mParameters.find(id);
+    if (it == mParameters.end())
+    {
+        LOGE("%s: id=%u not found", __func__, id);
+        assert(false);
+    }
+    return std::static_pointer_cast<ConfigParameter<T>>(it->second)->value();
+}
+
+template <typename T>
+T Config::valueOr(unsigned char id, const T &defaultValue) const
+{
+    LOGV("%s (const T&)", __func__);
+    T *ptr = find<T>(id);
+    return ptr ? *ptr : defaultValue;
+}
+
+template <typename T>
+T Config::valueOr(unsigned char id, T &&defaultValue) const
+{
+    LOGV("%s (T&&)", __func__);
+    T *ptr = find<T>(id);
+    return ptr ? *ptr : std::move(defaultValue);
+}
+
 } // namespace
+
+#pragma pop_macro("LOG_MODULE")

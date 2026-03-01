@@ -7,6 +7,9 @@
  * (at your option) any later version.
  */
 
+#undef LOG_MODULE
+#define LOG_MODULE "CFG:B"
+
 #include <algorithm>
 #include <memory>
 #include <console.h>
