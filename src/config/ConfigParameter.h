@@ -67,7 +67,9 @@ public:
 
     T& value() { return mValue; }
 
+    T get() { return mValue; }
     const T& get() const { return mValue; }
+
     void set(const T &value) { mValue = value; }
     void set(T &&value) { mValue = std::move(value); }
 protected:
@@ -122,16 +124,16 @@ template <typename T>
 ByteBuffer::iterator
 ConfigParameter<std::vector<T>>::read(ByteBuffer::iterator &it)
 {
-    auto & vector = this->value();
     auto nextIt = ConfigParameterBase::read(it);
 
     LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
-        char length = *nextIt++;
-
+        auto &vector = this->value();
         vector.clear();
+
+        char length = *nextIt++;
 
         LOGI_ADD("read: id=%u, sz=%u, value={", getId(), length);
         for (unsigned char ix = 0; ix < length; ++ix) {

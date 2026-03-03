@@ -381,7 +381,6 @@ template <>
 ByteBuffer::iterator
 ConfigParameter<IPAddress>::read(ByteBuffer::iterator &it)
 {
-    auto & value = this->value();
     auto nextIt = ConfigParameterBase::read(it);
 
     LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
@@ -459,13 +458,13 @@ ConfigParameter<PersistCounter>::ConfigParameter(unsigned char id, const Persist
 
 ByteBuffer::iterator ConfigParameter<PersistCounter>::read(ByteBuffer::iterator &it)
 {
-    auto & counter = this->value();
     auto nextIt = ConfigParameterBase::read(it);
 
     LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
+        auto counter = this->get();
         nextIt = counter.read(nextIt);
 
         char checksum = *nextIt++;
@@ -480,6 +479,7 @@ ByteBuffer::iterator ConfigParameter<PersistCounter>::read(ByteBuffer::iterator 
         }
 
         LOGI("read: id=%u, value=%u, cs=%u", getId(), counter.get(), checksum);
+        set(counter);
     }
 
     LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);

@@ -15,7 +15,7 @@
 
 using namespace config;
 
-enum CusromID
+enum CustomID : unsigned char
 {
     ID1 = Config::ID::CUSTOM_START + 1,
     ID2, ID3, ID4, ID5, ID6, ID7,
@@ -49,28 +49,28 @@ void test_basic(void)
     Config &config = Config::getInstance();
 
     {
-        auto actual = config.valueOr<char>(ID1, -1);
+        auto actual = config.getOr<char>(ID1, -1);
 
         TEST_LOG("id=%u, value<char>=%u", ID1, actual);
         TEST_ASSERT_EQUAL(1, actual);
     }
 
     {
-        auto actual = config.valueOr<int>(ID2, -1);
+        auto actual = config.getOr<int>(ID2, -1);
 
         TEST_LOG("id=%u, value<int>=%d", ID2, actual);
         TEST_ASSERT_EQUAL(2, actual);
     }
 
     {
-        auto actual = config.valueOr<std::string>(ID3, "");
+        auto actual = config.getOr<std::string>(ID3, "");
 
         TEST_LOG("id=%u, value<string>=%s", ID3, actual.c_str());
         TEST_ASSERT_EQUAL_STRING("test", actual.c_str());
     }
 
     {
-        auto actual = config.valueOr<std::vector<int>>(ID4, std::vector<int>());
+        auto actual = config.getOr<std::vector<int>>(ID4, std::vector<int>());
 
         TEST_LOG("id=%u, value<vector>::size=%u", ID4, actual.size());
         TEST_ASSERT_EQUAL(actual.size(), 3);
@@ -84,7 +84,7 @@ void test_basic(void)
     }
 
     {
-        auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+        auto actual = config.getOr<IPAddress>(ID5, IPAddress());
 
         TEST_LOG("id=%u, address=%s", ID5, actual.toString().c_str());
         TEST_ASSERT_EQUAL_STRING("1.2.3.4", actual.toString().c_str());
@@ -99,7 +99,7 @@ void test_basic(void)
     }
 
     {
-        auto actual = config.valueOr<float>(ID7, -1.0);
+        auto actual = config.getOr<float>(ID7, -1.0);
 
         TEST_LOG("id=%u, value<float>=%f", ID7, actual);
         TEST_ASSERT_EQUAL(6.0, actual);
@@ -132,7 +132,7 @@ void test_has_value(void)
     }
 
     {
-        auto actual = config.valueOr<char>(ID1, -1);
+        auto actual = config.getOr<char>(ID1, -1);
 
         TEST_LOG("id=%u, value<char>=%u", ID1, actual);
         TEST_ASSERT_EQUAL(1, actual);
@@ -140,7 +140,7 @@ void test_has_value(void)
 
     {
         char defaultValue = -1;
-        auto actual = config.valueOr<char>(ID1, defaultValue);
+        auto actual = config.getOr<char>(ID1, defaultValue);
 
         TEST_LOG("id=%u, value<char>=%u", ID1, actual);
         TEST_ASSERT_EQUAL(1, actual);
@@ -154,7 +154,7 @@ void test_modify(void)
     Config &config = Config::getInstance();
 
     {
-        auto actual = config.valueOr<float>(ID7, 0.0);
+        auto actual = config.getOr<float>(ID7, 0.0);
         TEST_ASSERT_NOT_EQUAL(0.0, actual);
 
         auto value = actual * 2;
@@ -163,7 +163,7 @@ void test_modify(void)
         TEST_ASSERT_TRUE(config.hasValue(ID7));
         config.value<float>(ID7) = value;
 
-        TEST_ASSERT_EQUAL(value, config.valueOr<float>(ID7, 0.0));
+        TEST_ASSERT_EQUAL(value, config.getOr<float>(ID7, 0.0));
     }
 }
 
@@ -182,13 +182,13 @@ void test_read(void)
 
         config.value<type>(id) = 10;
         config.write(eeprom);
-        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+        TEST_ASSERT_EQUAL(10, config.getOr<type>(id, 0.0));
 
         config.set<type>(id, 20);
-        TEST_ASSERT_EQUAL(20, config.valueOr<type>(id, 0.0));
+        TEST_ASSERT_EQUAL(20, config.getOr<type>(id, 0.0));
 
         config.read(eeprom);
-        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+        TEST_ASSERT_EQUAL(10, config.getOr<type>(id, 0.0));
     }
 
     {
@@ -199,13 +199,13 @@ void test_read(void)
 
         config.value<type>(id) = 10;
         config.write(eeprom);
-        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+        TEST_ASSERT_EQUAL(10, config.getOr<type>(id, 0.0));
 
         config.set<type>(id, 20);
-        TEST_ASSERT_EQUAL(20, config.valueOr<type>(id, 0.0));
+        TEST_ASSERT_EQUAL(20, config.getOr<type>(id, 0.0));
 
         config.read(eeprom);
-        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+        TEST_ASSERT_EQUAL(10, config.getOr<type>(id, 0.0));
     }
 
     {
@@ -216,13 +216,13 @@ void test_read(void)
 
         config.value<type>(id) = "10";
         config.write(eeprom);
-        TEST_ASSERT_EQUAL_STRING("10", config.valueOr<type>(id, "").c_str());
+        TEST_ASSERT_EQUAL_STRING("10", config.getOr<type>(id, "").c_str());
 
         config.set<type>(id, "20");
-        TEST_ASSERT_EQUAL_STRING("20", config.valueOr<type>(id, "").c_str());
+        TEST_ASSERT_EQUAL_STRING("20", config.getOr<type>(id, "").c_str());
 
         config.read(eeprom);
-        TEST_ASSERT_EQUAL_STRING("10", config.valueOr<type>(id, "").c_str());
+        TEST_ASSERT_EQUAL_STRING("10", config.getOr<type>(id, "").c_str());
     }
 
     {
@@ -263,19 +263,19 @@ void test_read(void)
         config.value<type>(id) = IPAddress(10, 2, 3, 4);
         config.write(eeprom);
         {
-            auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+            auto actual = config.getOr<IPAddress>(ID5, IPAddress());
             TEST_ASSERT_EQUAL_STRING("10.2.3.4", actual.toString().c_str());
         }
 
         config.set<type>(id, IPAddress(20, 2, 3, 4));
         {
-            auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+            auto actual = config.getOr<IPAddress>(ID5, IPAddress());
             TEST_ASSERT_EQUAL_STRING("20.2.3.4", actual.toString().c_str());
         }
 
         config.read(eeprom);
         {
-            auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+            auto actual = config.getOr<IPAddress>(ID5, IPAddress());
             TEST_ASSERT_EQUAL_STRING("10.2.3.4", actual.toString().c_str());
         }
     }
@@ -288,13 +288,13 @@ void test_read(void)
 
         config.value<type>(id) = 10;
         config.write(eeprom);
-        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0));
+        TEST_ASSERT_EQUAL(10, config.getOr<type>(id, 0));
 
         config.set<type>(id, 20);
-        TEST_ASSERT_EQUAL(20, config.valueOr<type>(id, 0));
+        TEST_ASSERT_EQUAL(20, config.getOr<type>(id, 0));
 
         config.read(eeprom);
-        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0));
+        TEST_ASSERT_EQUAL(10, config.getOr<type>(id, 0));
     }
 
     {
@@ -302,13 +302,13 @@ void test_read(void)
 
         config.value<float>(ID7) = 10.0;
         config.write(eeprom);
-        TEST_ASSERT_EQUAL(10.0, config.valueOr<float>(ID7, 0.0));
+        TEST_ASSERT_EQUAL(10.0, config.getOr<float>(ID7, 0.0));
 
         config.set<float>(ID7, 20.0);
-        TEST_ASSERT_EQUAL(20.0, config.valueOr<float>(ID7, 0.0));
+        TEST_ASSERT_EQUAL(20.0, config.getOr<float>(ID7, 0.0));
 
         config.read(eeprom);
-        TEST_ASSERT_EQUAL(10.0, config.valueOr<float>(ID7, 0.0));
+        TEST_ASSERT_EQUAL(10.0, config.getOr<float>(ID7, 0.0));
     }
 }
 

@@ -45,9 +45,12 @@ public:
     template<typename T>
     Config& add(unsigned char id, const T& value);
 
+    template <typename T>
+    Config& add(unsigned char id, T&& value);
+
     bool remove(unsigned char id);
 
-    //--- Query existence ---
+    //--- Check existence ---
     bool hasValue(unsigned char id) const;
 
     //--- Find and read values ---
@@ -61,10 +64,10 @@ public:
     const T& value(unsigned char id) const;
 
     template<typename T>
-    T valueOr(unsigned char id, const T& defaultValue) const;
+    T getOr(unsigned char id, const T& defaultValue) const;
 
     template<typename T>
-    T valueOr(unsigned char id, T&& defaultValue) const;
+    T getOr(unsigned char id, T&& defaultValue) const;
 
     //--- Modify values ---
     template<typename T>
@@ -104,19 +107,25 @@ enum Config::ID : unsigned char
 template<typename T>
 Config& Config::add(unsigned char id, const T &value)
 {
+    return add(id, T(value));
+}
+
+template <typename T>
+Config& Config::add(unsigned char id, T &&value)
+{
     LOGV("%s", __func__);
 
     auto it = mParameters.find(id);
     if (it != mParameters.end())
     {
         LOGD("%s: id=%u found, update existing value", __func__, id);
-        auto ptr = std::static_pointer_cast<ConfigParameter<T>>(it->second);
-        ptr->set(value);
+        auto ptr = std::static_pointer_cast<ConfigParameter<std::remove_reference_t<T>>>(it->second);
+        ptr->set(std::forward<T>(value));
     }
     else
     {
         LOGD("%s: id=%u not found, create new value", __func__, id);
-        auto ptr = std::make_shared<ConfigParameter<T>>(id, value);
+        auto ptr = std::make_shared<ConfigParameter<std::remove_reference_t<T>>>(id, std::forward<T>(value));
         mParameters.insert({id, ptr});
     }
 
@@ -179,7 +188,7 @@ const T& Config::value(unsigned char id) const
 }
 
 template <typename T>
-T Config::valueOr(unsigned char id, const T &defaultValue) const
+T Config::getOr(unsigned char id, const T& defaultValue) const
 {
     LOGV("%s (const T&)", __func__);
     T *ptr = find<T>(id);
@@ -187,7 +196,7 @@ T Config::valueOr(unsigned char id, const T &defaultValue) const
 }
 
 template <typename T>
-T Config::valueOr(unsigned char id, T &&defaultValue) const
+T Config::getOr(unsigned char id, T &&defaultValue) const
 {
     LOGV("%s (T&&)", __func__);
     T *ptr = find<T>(id);
