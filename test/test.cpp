@@ -18,11 +18,7 @@ using namespace config;
 enum CusromID
 {
     ID1 = Config::ID::CUSTOM_START + 1,
-    ID2,
-    ID3,
-    ID4,
-    ID5,
-    ID6,
+    ID2, ID3, ID4, ID5, ID6, ID7,
     ID_MAX
 };
 
@@ -39,7 +35,8 @@ void setUp()
         .add<std::string>(ID3, "test")
         .add<std::vector<int>>(ID4, {1, 2, 3})
         .add<IPAddress>(ID5, IPAddress(1, 2, 3, 4))
-        .add<PersistCounter>(ID6, PersistCounter(4))
+        .add<PersistCounter>(ID6, PersistCounter(5))
+        .add<float>(ID7, 6.0)
         .write(eeprom);
 
     (void)config;
@@ -98,7 +95,14 @@ void test_basic(void)
         auto actual = config.value<PersistCounter>(ID6);
 
         TEST_LOG("id=%u, counter=%u", ID6, actual);
-        TEST_ASSERT_EQUAL(0, actual);
+        TEST_ASSERT_EQUAL(5, actual);
+    }
+
+    {
+        auto actual = config.valueOr<float>(ID7, -1.0);
+
+        TEST_LOG("id=%u, value<float>=%f", ID7, actual);
+        TEST_ASSERT_EQUAL(6.0, actual);
     }
 }
 
@@ -143,6 +147,171 @@ void test_has_value(void)
     }
 }
 
+void test_modify(void)
+{
+    TEST_LOG("--- TEST CASE: %s ---", __func__);
+
+    Config &config = Config::getInstance();
+
+    {
+        auto actual = config.valueOr<float>(ID7, 0.0);
+        TEST_ASSERT_NOT_EQUAL(0.0, actual);
+
+        auto value = actual * 2;
+        TEST_LOG("id=%u, value<float>: %.1f -> %.1f", ID7, actual, value);
+
+        TEST_ASSERT_TRUE(config.hasValue(ID7));
+        config.value<float>(ID7) = value;
+
+        TEST_ASSERT_EQUAL(value, config.valueOr<float>(ID7, 0.0));
+    }
+}
+
+void test_read(void)
+{
+    TEST_LOG("--- TEST CASE: %s ---", __func__);
+
+    config::StorageEeprom eeprom = config::StorageEeprom(512);
+    Config &config = Config::getInstance();
+
+    {
+        auto id = ID1;
+        using type = char;
+
+        TEST_ASSERT_TRUE(config.hasValue(id));
+
+        config.value<type>(id) = 10;
+        config.write(eeprom);
+        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+
+        config.set<type>(id, 20);
+        TEST_ASSERT_EQUAL(20, config.valueOr<type>(id, 0.0));
+
+        config.read(eeprom);
+        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+    }
+
+    {
+        auto id = ID2;
+        using type = int;
+
+        TEST_ASSERT_TRUE(config.hasValue(id));
+
+        config.value<type>(id) = 10;
+        config.write(eeprom);
+        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+
+        config.set<type>(id, 20);
+        TEST_ASSERT_EQUAL(20, config.valueOr<type>(id, 0.0));
+
+        config.read(eeprom);
+        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0.0));
+    }
+
+    {
+        auto id = ID3;
+        using type = std::string;
+
+        TEST_ASSERT_TRUE(config.hasValue(id));
+
+        config.value<type>(id) = "10";
+        config.write(eeprom);
+        TEST_ASSERT_EQUAL_STRING("10", config.valueOr<type>(id, "").c_str());
+
+        config.set<type>(id, "20");
+        TEST_ASSERT_EQUAL_STRING("20", config.valueOr<type>(id, "").c_str());
+
+        config.read(eeprom);
+        TEST_ASSERT_EQUAL_STRING("10", config.valueOr<type>(id, "").c_str());
+    }
+
+    {
+        auto id = ID4;
+        using type = std::vector<int>;
+
+        TEST_ASSERT_TRUE(config.hasValue(id));
+
+        config.value<type>(id) = {10};
+        config.write(eeprom);
+        {
+            auto actual = config.value<type>(id);
+            int expected[] = {10};
+            TEST_ASSERT_EQUAL_INT_ARRAY(expected, actual.data(), actual.size());
+        }
+
+        config.set<type>(id, {20});
+        {
+            auto actual = config.value<type>(id);
+            int expected[] = {20};
+            TEST_ASSERT_EQUAL_INT_ARRAY(expected, actual.data(), actual.size());
+        }
+
+        config.read(eeprom);
+        {
+            auto actual = config.value<type>(id);
+            int expected[] = {10};
+            TEST_ASSERT_EQUAL_INT_ARRAY(expected, actual.data(), actual.size());
+        }
+    }
+
+    {
+        auto id = ID5;
+        using type = IPAddress;
+
+        TEST_ASSERT_TRUE(config.hasValue(id));
+
+        config.value<type>(id) = IPAddress(10, 2, 3, 4);
+        config.write(eeprom);
+        {
+            auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+            TEST_ASSERT_EQUAL_STRING("10.2.3.4", actual.toString().c_str());
+        }
+
+        config.set<type>(id, IPAddress(20, 2, 3, 4));
+        {
+            auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+            TEST_ASSERT_EQUAL_STRING("20.2.3.4", actual.toString().c_str());
+        }
+
+        config.read(eeprom);
+        {
+            auto actual = config.valueOr<IPAddress>(ID5, IPAddress());
+            TEST_ASSERT_EQUAL_STRING("10.2.3.4", actual.toString().c_str());
+        }
+    }
+
+    {
+        auto id = ID6;
+        using type = PersistCounter;
+
+        TEST_ASSERT_TRUE(config.hasValue(id));
+
+        config.value<type>(id) = 10;
+        config.write(eeprom);
+        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0));
+
+        config.set<type>(id, 20);
+        TEST_ASSERT_EQUAL(20, config.valueOr<type>(id, 0));
+
+        config.read(eeprom);
+        TEST_ASSERT_EQUAL(10, config.valueOr<type>(id, 0));
+    }
+
+    {
+        TEST_ASSERT_TRUE(config.hasValue(ID7));
+
+        config.value<float>(ID7) = 10.0;
+        config.write(eeprom);
+        TEST_ASSERT_EQUAL(10.0, config.valueOr<float>(ID7, 0.0));
+
+        config.set<float>(ID7, 20.0);
+        TEST_ASSERT_EQUAL(20.0, config.valueOr<float>(ID7, 0.0));
+
+        config.read(eeprom);
+        TEST_ASSERT_EQUAL(10.0, config.valueOr<float>(ID7, 0.0));
+    }
+}
+
 void test_remove(void)
 {
     TEST_LOG("--- CASE: %s ---", __func__);
@@ -168,6 +337,8 @@ void setup()
     RUN_TEST(test_basic);
     RUN_TEST(test_find);
     RUN_TEST(test_has_value);
+    RUN_TEST(test_modify);
+    RUN_TEST(test_read);
     RUN_TEST(test_remove);
     UNITY_END();
 }

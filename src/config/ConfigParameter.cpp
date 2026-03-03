@@ -93,26 +93,28 @@ ConfigParameter<char>::ConfigParameter(unsigned char id, const char &value)
 template <>
 ByteBuffer::iterator ConfigParameter<char>::read(ByteBuffer::iterator &it)
 {
-    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
-        value = *nextIt++;
+        char value = *nextIt++;
 
-        char checksum = Checksum(Checksum::CRC8)
-            .calculate(reinterpret_cast<char *>(&value), sizeof(char));
-
-        if (checksum != *nextIt++)
+        char checksum = *nextIt++;
+        char expected = Checksum(Checksum::CRC8)
+                            .calculate(reinterpret_cast<char *>(&value), sizeof(char));
+        if (checksum != expected)
         {
-            LOG("Invalid checksum (0x%X): id=%d, type=%d",
-                        checksum, mId, mType);
+            LOGE("read failed, invalid checksum: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
             return it;
         }
 
-        LOG("CFG read [%02d]: %d, CS: 0x%X", mId, value, checksum);
+        LOGI("read: id=%u, value=%u, cs=%u", getId(), value, checksum);
+        set(value);
     }
 
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }
 
@@ -122,13 +124,16 @@ ByteBuffer::iterator ConfigParameter<char>::write(ByteBuffer::iterator &it)
     auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
+
     char checksum = Checksum(Checksum::CRC8)
         .calculate(reinterpret_cast<char *>(&value), sizeof(char));
 
     *nextIt++ = value;
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: %d, CS: 0x%X", mId, value, checksum);
+    LOGI("write: id=%u, value=%u, cs=0x%X", getId(), value, checksum);
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     return nextIt;
 }
@@ -150,31 +155,33 @@ ConfigParameter<int>::ConfigParameter(unsigned char id, const int &value)
 template <>
 ByteBuffer::iterator ConfigParameter<int>::read(ByteBuffer::iterator &it)
 {
-    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
-        value = 0;
+        int value = 0;
 
         for (unsigned char ix = 0; ix < sizeof(int); ++ix) {
 
             value |= BYTE_SET(ix, 0x00, *nextIt++);
         }
 
-        char checksum = Checksum(Checksum::CRC8)
-            .calculate(reinterpret_cast<char *>(&value),sizeof(int));
-
-        if (checksum != *nextIt++)
+        char checksum = *nextIt++;
+        char expected = Checksum(Checksum::CRC8)
+                            .calculate(reinterpret_cast<char *>(&value), sizeof(int));
+        if (checksum != expected)
         {
-            LOG("Invalid checksum (0x%X): id=%d, type=%d",
-                        checksum, mId, mType);
+            LOGE("read failed, invalid checksum: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
             return it;
         }
 
-        LOG("CFG read [%02d]: %d, CS: 0x%X", mId, value, checksum);
+        LOGI("read: id=%u, value=%u, cs=%u", getId(), value, checksum);
+        set(value);
     }
 
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }
 
@@ -183,6 +190,8 @@ ByteBuffer::iterator ConfigParameter<int>::write(ByteBuffer::iterator &it)
 {
     auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
+
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     char checksum = Checksum(Checksum::CRC8)
         .calculate(reinterpret_cast<char*>(&value), sizeof(int));
@@ -194,7 +203,82 @@ ByteBuffer::iterator ConfigParameter<int>::write(ByteBuffer::iterator &it)
 
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: %d, CS: 0x%X", mId, value, checksum);
+    LOGI("write: id=%u, value=%u, cs=0x%X", getId(), value, checksum);
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
+
+    return nextIt;
+}
+
+// Class ConfigParameter<float>
+
+template <>
+ConfigParameter<float>::ConfigParameter(unsigned char id)
+    : ConfigParameterBase(ConfigParameterType::FLOAT, id),
+      ConfigParameterValue(0.0f){};
+
+template <>
+ConfigParameter<float>::ConfigParameter(unsigned char id, const float &value)
+    : ConfigParameterBase(ConfigParameterType::FLOAT, id),
+      ConfigParameterValue(value){};
+
+template <>
+ByteBuffer::iterator ConfigParameter<float>::read(ByteBuffer::iterator &it)
+{
+    auto nextIt = ConfigParameterBase::read(it);
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
+
+    if (nextIt != it)
+    {
+        float value = 0.0;
+        uint32_t data = 0;
+
+        for (unsigned char ix = 0; ix < sizeof(float); ++ix)
+        {
+            data |= BYTE_SET(ix, 0x00, *nextIt++);
+        }
+
+        value = static_cast<float>(data);
+
+        char checksum = *nextIt++;
+        char expected = Checksum(Checksum::CRC8)
+                            .calculate(reinterpret_cast<char *>(&value), sizeof(float));
+        if (checksum != expected)
+        {
+            LOGE("read failed, invalid checksum: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
+            return it;
+        }
+
+        LOGI("read: id=%u, value=%.2f, cs=%u", getId(), value, checksum);
+        set(value);
+    }
+
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
+    return nextIt;
+}
+
+template <>
+ByteBuffer::iterator ConfigParameter<float>::write(ByteBuffer::iterator &it)
+{
+    auto value = this->get();
+    auto nextIt = ConfigParameterBase::write(it);
+
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
+
+    uint32_t data = static_cast<uint32_t>(value);
+
+    for (unsigned char ix = 0; ix < sizeof(data); ++ix)
+    {
+        *nextIt++ = NBYTE(ix, data);
+    }
+
+    char checksum = Checksum(Checksum::CRC8)
+                        .calculate(reinterpret_cast<char *>(&value), sizeof(float));
+
+    *nextIt++ = checksum;
+
+    LOGI("write: id=%u, value=%.2f, cs=0x%X", getId(), value, checksum);
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     return nextIt;
 }
@@ -218,33 +302,36 @@ template <>
 ByteBuffer::iterator
 ConfigParameter<std::string>::read(ByteBuffer::iterator &it)
 {
-    auto value = this->get();
     auto nextIt = ConfigParameterBase::read(it);
+
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
+        std::string value;
         char length = *nextIt++;
-
-        value.clear();
 
         for (unsigned char ix = 0; ix < length; ++ix)
         {
             value += *nextIt++;
         }
 
-        char checksum = Checksum(Checksum::CRC8)
+        char checksum = *nextIt++;
+        char expected = Checksum(Checksum::CRC8)
             .calculate(value.c_str(), value.length());
 
-        if (checksum != *nextIt++)
+        if (checksum != expected)
         {
-            LOG("Invalid checksum (0x%X): id=%d, type=%d",
-                        checksum, mId, mType);
+            LOGE("read failed, invalid checksum: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
             return it;
         }
 
-        LOG("CFG read [%02d]: '%s', CS: 0x%X", mId, value.c_str(), checksum);
+        LOGI("read: id=%u, value='%s', cs=%u", getId(), value.c_str(), checksum);
+        set(value);
     }
 
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }
 
@@ -254,6 +341,8 @@ ConfigParameter<std::string>::write(ByteBuffer::iterator &it)
 {
     auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
+
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     char checksum = Checksum(Checksum::CRC8)
         .calculate(value.c_str(), value.length());
@@ -267,7 +356,8 @@ ConfigParameter<std::string>::write(ByteBuffer::iterator &it)
 
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: '%s', CS: 0x%X", mId, value.c_str(), checksum);
+    LOGI("write: id=%u, value='%s', cs=0x%X", getId(), value.c_str(), checksum);
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     return nextIt;
 }
@@ -291,34 +381,37 @@ template <>
 ByteBuffer::iterator
 ConfigParameter<IPAddress>::read(ByteBuffer::iterator &it)
 {
-    auto value = this->get();
+    auto & value = this->value();
     auto nextIt = ConfigParameterBase::read(it);
+
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
-        unsigned int address = 0;
+        unsigned int data = 0;
 
         for (unsigned char ix = 0; ix < sizeof(int); ++ix)
         {
-            address |= BYTE_SET(ix, 0x00, *nextIt++);
+            data |= BYTE_SET(ix, 0x00, *nextIt++);
         }
 
-        char checksum = Checksum(Checksum::CRC8)
-            .calculate(reinterpret_cast<char*>(&address), sizeof(int));
-
-        if (checksum != static_cast<char>(*nextIt++))
+        char checksum = *nextIt++;
+        char expected = Checksum(Checksum::CRC8)
+                            .calculate(reinterpret_cast<char *>(&data), sizeof(int));
+        if (checksum != expected)
         {
-            LOG("Invalid checksum (0x%X): id=%d, type=%d",
-                        checksum, mId, mType);
+            LOGE("read failed, invalid checksum: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
             return it;
         }
 
-        value = address;
+        auto value = IPAddress(data);
 
-        LOG("CFG read [%02d]: %s, CS: 0x%X",
-                    mId, IPAddress(address).toString().c_str(), checksum);
+        LOGI("read: id=%u, value='%s', cs=0x%X", getId(), value.toString().c_str(), checksum);
+        set(value);
     }
 
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }
 
@@ -329,19 +422,21 @@ ConfigParameter<IPAddress>::write(ByteBuffer::iterator &it)
     auto value = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
+
     unsigned int address = static_cast<unsigned int>(value);
+    char checksum = Checksum(Checksum::CRC8)
+        .calculate(reinterpret_cast<char *>(&address), sizeof(int));
 
     for (unsigned char ix = 0; ix < sizeof(int); ++ix)
     {
         *nextIt++ = NBYTE(ix, address);
     }
 
-    char checksum = Checksum(Checksum::CRC8)
-        .calculate(reinterpret_cast<char*>(&address), sizeof(int));
-
     *nextIt++ = checksum;
-    LOG("CFG write [%02d]: %s, CS: 0x%X",
-                mId, value.toString().c_str(), checksum);
+
+    LOGI("write: id=%u, value='%s', cs=0x%X", getId(), value.toString().c_str(), checksum);
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     return nextIt;
 }
@@ -364,24 +459,30 @@ ConfigParameter<PersistCounter>::ConfigParameter(unsigned char id, const Persist
 
 ByteBuffer::iterator ConfigParameter<PersistCounter>::read(ByteBuffer::iterator &it)
 {
-    auto counter = this->get();
+    auto & counter = this->value();
     auto nextIt = ConfigParameterBase::read(it);
 
-    nextIt = counter.read(nextIt);
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
-    char checksum = *nextIt++;
-    char valid = Checksum(Checksum::CRC8)
-                     .calculate(reinterpret_cast<const char *>(&counter.get()),
-                                sizeof(PersistCounter::Type));
-    if (checksum != valid)
+    if (nextIt != it)
     {
-        LOG("Invalid checksum 0x%x (!= 0x%x): id=%d, type=%d",
-            checksum, valid, mId, mType);
-        return it;
+        nextIt = counter.read(nextIt);
+
+        char checksum = *nextIt++;
+        char expected = Checksum(Checksum::CRC8)
+                            .calculate(reinterpret_cast<const char *>(&counter.get()),
+                                       sizeof(PersistCounter::Type));
+        if (checksum != expected)
+        {
+            LOGE("read failed, invalid checksum: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
+            return it;
+        }
+
+        LOGI("read: id=%u, value=%u, cs=%u", getId(), counter.get(), checksum);
     }
 
-    LOG("CFG read [%02d]: %d, CS: 0x%X", mId, counter.get(), checksum);
-
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }
 
@@ -389,6 +490,8 @@ ByteBuffer::iterator ConfigParameter<PersistCounter>::write(ByteBuffer::iterator
 {
     auto counter = this->get();
     auto nextIt = ConfigParameterBase::write(it);
+
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     nextIt = counter.write(nextIt);
 
@@ -398,7 +501,7 @@ ByteBuffer::iterator ConfigParameter<PersistCounter>::write(ByteBuffer::iterator
 
     *nextIt++ = checksum;
 
-    LOG("CFG write [%02d]: %u, CS: 0x%X", mId, counter.get(), checksum);
-
+    LOGI("write: id=%u, value=%u, cs=0x%X", getId(), counter.get(), checksum);
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }

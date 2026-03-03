@@ -17,24 +17,27 @@
 
 using namespace config;
 
-PersistCounter::PersistCounter(unsigned char size)
-  : mValue(0),
-    mSize(size),
-    mSlot(0)
-{}
+PersistCounter::PersistCounter(Type value, unsigned char capacity)
+    : mValue(value),
+      mCapacity(capacity),
+      mSlot(0)
+{
+}
 
 ByteBuffer::iterator PersistCounter::read(ByteBuffer::iterator &it)
 {
     auto nextIt = it;
 
-    LOGD("read start: cursor=%u", nextIt.mCursor);
+    LOGV("read begin: cursor=%u", nextIt.mCursor);
 
     if ((*nextIt++ == FLAG) && (*nextIt++ == sizeof(Type)))
     {
-        mSize = *nextIt++;
+        mCapacity = *nextIt++;
 
-        for (unsigned char sx = 0; sx < mSize; ++sx)
+        for (unsigned char sx = 0; sx < mCapacity; ++sx)
         {
+            mValue = 0;
+
             for (unsigned char ix = 0; ix < sizeof(Type); ++ix)
             {
                 mValue |= BYTE_SET(ix, 0x00, *nextIt++);
@@ -44,22 +47,18 @@ ByteBuffer::iterator PersistCounter::read(ByteBuffer::iterator &it)
             {
                 mSlot = sx;
 
-                LOGD("read: size=%u slot=%u value=%u", mSize, mSlot, mValue);
+                LOGD("read: capacity=%u, slot=%u, value=%u", mCapacity, mSlot, mValue);
 
                 // Skip rest slots and flag
-                nextIt += ((mSize - 1) - sx) * sizeof(Type) + 1;
+                nextIt += ((mCapacity - 1) - sx) * sizeof(Type) + 1;
 
-                LOGD("read next: cursor=%u", nextIt.mCursor);
+                LOGV("read end: cursor=%u", nextIt.mCursor);
                 return nextIt;
             }
         }
     }
 
-    LOGD("read error: not found, use defaults");
-    mValue = 0;
-    mSlot = 0;
-
-    LOGD("read end: cursor=%u", it.mCursor);
+    LOGE("read failed: start flag not found");
     return it;
 }
 
@@ -67,18 +66,18 @@ ByteBuffer::iterator PersistCounter::write(ByteBuffer::iterator &it)
 {
     auto nextIt = it;
 
-    LOG(" [w] begin: %u", nextIt.mCursor);
+    LOGV("write: cursor=%u", nextIt.mCursor);
 
     *nextIt++ = FLAG;
     *nextIt++ = sizeof(Type);
-    *nextIt++ = mSize;
+    *nextIt++ = mCapacity;
 
     mValue %= PersistCounter::MASK;
-    mSlot = (mSlot + 1) % mSize;
-
-    LOG(" [w] size:%u slot:%u value:%u", mSize, mSlot, mValue);
+    mSlot = (mSlot + 1) % mCapacity;
 
     nextIt += mSlot * sizeof(Type);
+
+    LOGD("write: capacity=%u, slot=%u, value=%u", mCapacity, mSlot, mValue);
 
     for (unsigned char ix = 0; ix < sizeof(Type); ++ix)
     {
@@ -88,9 +87,9 @@ ByteBuffer::iterator PersistCounter::write(ByteBuffer::iterator &it)
     *nextIt++ = FLAG;
 
     // Skip next slots
-    nextIt += ((mSize - 1) - mSlot) * sizeof(Type);
+    nextIt += ((mCapacity - 1) - mSlot) * sizeof(Type);
 
-    LOG(" [w] end: %u", nextIt.mCursor);
+    LOGV("write: cursor=%u", nextIt.mCursor);
     return nextIt;
 }
 
@@ -117,7 +116,7 @@ PersistCounter::operator Type() const
     return mValue;
 }
 
-const PersistCounter::Type& PersistCounter::get()
+const PersistCounter::Type &PersistCounter::get()
 {
     return mValue;
 }

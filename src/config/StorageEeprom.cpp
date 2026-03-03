@@ -57,7 +57,7 @@ void StorageEeprom::dump(unsigned int limit)
         if ((ix % 16) == 0)
         {
             LOGD_FLUSH();
-            LOGD_ADD("%2u: ", (ix / 16));
+            LOGD_ADD("%3u: ", ix);
         }
         else if ((ix % 4) == 0)
         {

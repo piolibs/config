@@ -25,7 +25,7 @@ namespace config
         using Type = unsigned int;
         static_assert(std::is_unsigned_v<Type>, "Must be unsigned!");
 
-        explicit PersistCounter(unsigned char size);
+        PersistCounter(Type value, unsigned char capacity = 1);
         ~PersistCounter() = default;
 
         PersistCounter(const PersistCounter &) = default;
@@ -39,7 +39,7 @@ namespace config
         ByteBuffer::iterator read(ByteBuffer::iterator &it);
         ByteBuffer::iterator write(ByteBuffer::iterator &it);
 
-        const Type& get();
+        const Type &get();
         void set(Type value);
 
     private:
@@ -49,7 +49,7 @@ namespace config
     private:
         Type mValue;
 
-        unsigned char mSize;
+        unsigned char mCapacity;
         unsigned char mSlot;
     };
 

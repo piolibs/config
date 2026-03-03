@@ -34,6 +34,7 @@ enum class ConfigParameterType {
     IP_ADDRESS,
     ARRAY,
     COUNTER,
+    FLOAT
 };
 
 class ConfigParameterBase {
@@ -67,7 +68,6 @@ public:
     T& value() { return mValue; }
 
     const T& get() const { return mValue; }
-
     void set(const T &value) { mValue = value; }
     void set(T &&value) { mValue = std::move(value); }
 protected:
@@ -122,8 +122,10 @@ template <typename T>
 ByteBuffer::iterator
 ConfigParameter<std::vector<T>>::read(ByteBuffer::iterator &it)
 {
-    auto vector = this->get();
+    auto & vector = this->value();
     auto nextIt = ConfigParameterBase::read(it);
+
+    LOGV("read begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     if (nextIt != it)
     {
@@ -131,35 +133,34 @@ ConfigParameter<std::vector<T>>::read(ByteBuffer::iterator &it)
 
         vector.clear();
 
+        LOGI_ADD("read: id=%u, sz=%u, value={", getId(), length);
         for (unsigned char ix = 0; ix < length; ++ix) {
 
             T value = 0;
-
-            for (unsigned char ix = 0; ix < sizeof(T); ++ix) {
-                value |= BYTE_SET(ix, 0x00, *nextIt++);
+            for (unsigned char bx = 0; bx< sizeof(T); ++bx) {
+                value |= BYTE_SET(bx, 0x00, *nextIt++);
             }
 
+            LOGD_ADD(" %u", value);
             vector.push_back(value);
         }
 
-        char checksum = checksum::Checksum(checksum::Checksum::CRC8)
+        char checksum = *nextIt++;
+
+        LOGI_ADD(" }, cs=0x%X", checksum);
+        LOGI_FLUSH();
+
+        char expected = checksum::Checksum(checksum::Checksum::CRC8)
                             .calculate<typename std::vector<T>::iterator>(vector.begin(), vector.end());
+        if (checksum != expected) {
 
-        if (checksum != *nextIt++) {
-
-            LOG("Invalid checksum (0x%X): id=%d, type=%d",
-                        checksum, mId, mType);
+            LOGE("read failed: id=%d, cursor=%u, cs=0x%X",
+                 getId(), nextIt.mCursor, checksum);
             return it;
         }
-
-        LOG_ADD("CFG <= R [%02d]:", mId);
-        for (auto &value : vector) {
-            LOG_ADD(" %x", value);
-        }
-        LOG_ADD(", sz=%d, CS=0x%X", vector.size(), checksum);
-        LOG_FLUSH();
     }
 
+    LOGV("read end: id=%u, cursor=%u", getId(), nextIt.mCursor);
     return nextIt;
 }
 
@@ -170,27 +171,28 @@ ConfigParameter<std::vector<T>>::write(ByteBuffer::iterator &it) {
     auto vector = this->get();
     auto nextIt = ConfigParameterBase::write(it);
 
+    LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
+
     char checksum = checksum::Checksum(checksum::Checksum::CRC8)
                         .calculate<typename std::vector<T>::iterator>(vector.begin(), vector.end());
 
     *nextIt++ = vector.size();
 
+    LOGI_ADD("write: id=%u, sz=%u, value={", getId(), vector.size());
     for (unsigned char ix = 0; ix < vector.size(); ++ix)
     {
-        for (unsigned char jx = 0; jx < sizeof(T); ++jx) {
-
-            *nextIt++ = vector[ix];
+        LOGI_ADD(" %u", vector[ix]);
+        for (unsigned char bx = 0; bx < sizeof(T); ++bx)
+        {
+            *nextIt++ = NBYTE(bx, vector[ix]);
         }
     }
+    LOGI_ADD(" }, cs=0x%X", checksum);
+    LOGI_FLUSH();
 
     *nextIt++ = checksum;
 
-    LOG_ADD("CFG => W [%02d]:", mId);
-    for (auto &value : vector) {
-        LOG_ADD(" %x", value);
-    }
-    LOG_ADD(", sz=%d, CS=0x%X", vector.size(), checksum);
-    LOG_FLUSH();
+    LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     return nextIt;
 }
