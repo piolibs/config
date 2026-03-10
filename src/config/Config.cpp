@@ -16,7 +16,8 @@
 #include "Config.h"
 
 using namespace console;
-using namespace config;
+
+namespace config {
 
 Config::Config() : mParameters()
 {
@@ -74,3 +75,12 @@ Config& Config::read(ByteBuffer& buffer)
 
     return *this;
 }
+
+// --------------------------------------------------------
+
+Config& getInstance()
+{
+    return Config::getInstance();
+}
+
+} // namespace

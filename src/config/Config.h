@@ -203,6 +203,10 @@ T Config::getOr(unsigned char id, T &&defaultValue) const
     return ptr ? *ptr : std::move(defaultValue);
 }
 
+// --------------------------------------------------------
+
+Config& getInstance();
+
 } // namespace
 
 #pragma pop_macro("LOG_MODULE")
