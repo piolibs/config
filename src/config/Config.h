@@ -113,8 +113,6 @@ Config& Config::add(unsigned char id, const T &value)
 template <typename T>
 Config& Config::add(unsigned char id, T &&value)
 {
-    LOGV("%s", __func__);
-
     auto it = mParameters.find(id);
     if (it != mParameters.end())
     {
@@ -135,36 +133,38 @@ Config& Config::add(unsigned char id, T &&value)
 template <typename T>
 T* Config::find(unsigned char id) const
 {
-    LOGV("%s", __func__);
-
     auto it = mParameters.find(id);
     if (it == mParameters.end())
+    {
+        LOGV("%s: id=%u not found", __func__, id);
         return nullptr;
+    }
 
+    LOGV("%s: id=%u found", __func__, id);
     auto ptr = std::static_pointer_cast<ConfigParameter<T>>(it->second);
+
+    LOGV("%s: id=%u %s", __func__, id, ptr ? "has value" : "is null");
     return ptr ? &(ptr->value()) : nullptr;
 }
 
 template <typename T>
 bool Config::set(unsigned char id, const T &value)
 {
-    LOGV("%s", __func__);
     T *ptr = find<T>(id);
     if (ptr != nullptr)
     {
-        LOGD("%s: id=%u found", __func__, id);
+        LOGV("%s: id=%u set new value", __func__, id);
         *ptr = value;
         return true;
     }
 
-    LOGD("%s: id=%u not found", __func__, id);
+    LOGV("%s: id=%u not found", __func__, id);
     return false;
 }
 
 template <typename T>
 T& Config::value(unsigned char id)
 {
-    LOGV("%s", __func__);
     auto it = mParameters.find(id);
     if (it == mParameters.end())
     {
@@ -190,7 +190,6 @@ const T& Config::value(unsigned char id) const
 template <typename T>
 T Config::getOr(unsigned char id, const T& defaultValue) const
 {
-    LOGV("%s (const T&)", __func__);
     T *ptr = find<T>(id);
     return ptr ? *ptr : defaultValue;
 }
@@ -198,7 +197,6 @@ T Config::getOr(unsigned char id, const T& defaultValue) const
 template <typename T>
 T Config::getOr(unsigned char id, T &&defaultValue) const
 {
-    LOGV("%s (T&&)", __func__);
     T *ptr = find<T>(id);
     return ptr ? *ptr : std::move(defaultValue);
 }

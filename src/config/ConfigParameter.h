@@ -41,13 +41,11 @@ class ConfigParameterBase {
 public:
     static const unsigned char INVALID_ID = (-1);
 
-    ConfigParameterBase(ConfigParameterType type, unsigned char id, bool isValid);
+    ConfigParameterBase(ConfigParameterType type, unsigned char id);
     virtual ~ConfigParameterBase() {}
 
     unsigned char getId();
     ConfigParameterType getType();
-
-    bool isValid();
 
     virtual ByteBuffer::iterator read(ByteBuffer::iterator& it);
     virtual ByteBuffer::iterator write(ByteBuffer::iterator& it);
@@ -72,6 +70,7 @@ public:
 
     void set(const T &value) { mValue = value; }
     void set(T &&value) { mValue = std::move(value); }
+
 protected:
     T mValue;
 };
@@ -105,7 +104,7 @@ public:
 
 template <typename T>
 ConfigParameter<std::vector<T>>::ConfigParameter(unsigned char id)
-  : ConfigParameterBase(ConfigParameterType::ARRAY, id, false),
+  : ConfigParameterBase(ConfigParameterType::ARRAY, id),
     ConfigParameterValue<std::vector<T>>()
 {
     static_assert(std::is_arithmetic<T>::value, "Not an arithmetic type");
@@ -114,7 +113,7 @@ ConfigParameter<std::vector<T>>::ConfigParameter(unsigned char id)
 template <typename T>
 ConfigParameter<std::vector<T>>::ConfigParameter(unsigned char id,
                                                  const std::vector<T> &value)
-  : ConfigParameterBase(ConfigParameterType::ARRAY, id, true),
+  : ConfigParameterBase(ConfigParameterType::ARRAY, id),
     ConfigParameterValue<std::vector<T>>(value)
 {
     static_assert(std::is_arithmetic<T>::value, "Not an arithmetic type");

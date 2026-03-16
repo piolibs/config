@@ -60,7 +60,6 @@ Config& Config::write(ByteBuffer& buffer)
 
 Config& Config::read(ByteBuffer& buffer)
 {
-    LOGV("%s", __func__);
     ByteBuffer::iterator it = buffer.begin();
 
     for (auto & [ key, parameter]: mParameters)

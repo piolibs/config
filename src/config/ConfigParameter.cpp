@@ -23,8 +23,8 @@ using namespace config;
 
 // Class ConfigParameterBase
 
-ConfigParameterBase::ConfigParameterBase(ConfigParameterType type, unsigned char id, bool isValid = false)
-  : mType(type), mId(id), mIsValid(isValid)
+ConfigParameterBase::ConfigParameterBase(ConfigParameterType type, unsigned char id)
+  : mType(type), mId(id)
 {}
 
 unsigned char ConfigParameterBase::getId()
@@ -35,11 +35,6 @@ unsigned char ConfigParameterBase::getId()
 ConfigParameterType ConfigParameterBase::getType()
 {
     return this->mType;
-}
-
-bool ConfigParameterBase::isValid()
-{
-    return mIsValid;
 }
 
 ByteBuffer::iterator ConfigParameterBase::read(ByteBuffer::iterator &it)
@@ -67,8 +62,6 @@ ByteBuffer::iterator ConfigParameterBase::read(ByteBuffer::iterator &it)
 ByteBuffer::iterator ConfigParameterBase::write(ByteBuffer::iterator &it)
 {
     ByteBuffer::iterator nextIt = it;
-
-    /* LOG("write: id=0x%x, type=0x%x", mId, mType); */
 
     *nextIt++ = static_cast<char>(mId);
     *nextIt++ = static_cast<char>(mType);
