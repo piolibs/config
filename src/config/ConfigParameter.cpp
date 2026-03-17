@@ -242,7 +242,7 @@ ByteBuffer::iterator ConfigParameter<float>::read(ByteBuffer::iterator &it)
             return it;
         }
 
-        LOGI("read: id=%u, value=%.2f, cs=%u", getId(), value, checksum);
+        LOGI("read: id=%u, value=%g, cs=%u", getId(), value, checksum);
         set(value);
     }
 
@@ -270,7 +270,7 @@ ByteBuffer::iterator ConfigParameter<float>::write(ByteBuffer::iterator &it)
 
     *nextIt++ = checksum;
 
-    LOGI("write: id=%u, value=%.2f, cs=0x%X", getId(), value, checksum);
+    LOGI("write: id=%u, value=%g, cs=0x%X", getId(), value, checksum);
     LOGV("write end: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
     return nextIt;
