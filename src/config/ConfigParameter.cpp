@@ -10,6 +10,7 @@
 #undef LOG_MODULE
 #define LOG_MODULE "CFG:P"
 
+#include <cstring>
 #include <vector>
 #include <console.h>
 #include <checksum.h>
@@ -24,7 +25,7 @@ using namespace config;
 // Class ConfigParameterBase
 
 ConfigParameterBase::ConfigParameterBase(ConfigParameterType type, unsigned char id)
-  : mType(type), mId(id)
+  : mType(type), mId(id), mStoredCrc(0)
 {}
 
 unsigned char ConfigParameterBase::getId()
@@ -230,7 +231,8 @@ ByteBuffer::iterator ConfigParameter<float>::read(ByteBuffer::iterator &it)
             data |= BYTE_SET(ix, 0x00, *nextIt++);
         }
 
-        value = static_cast<float>(data);
+        // Restore the IEEE 754 bit pattern, not the integer value
+        memcpy(&value, &data, sizeof(float));
 
         char checksum = *nextIt++;
         char expected = Checksum(Checksum::CRC8)
@@ -258,7 +260,10 @@ ByteBuffer::iterator ConfigParameter<float>::write(ByteBuffer::iterator &it)
 
     LOGV("write begin: id=%u, cursor=%u", getId(), nextIt.mCursor);
 
-    uint32_t data = static_cast<uint32_t>(value);
+    // Store the IEEE 754 bit pattern, a cast would drop the fraction
+    uint32_t data = 0;
+    static_assert(sizeof(data) == sizeof(float), "Unexpected float size");
+    memcpy(&data, &value, sizeof(float));
 
     for (unsigned char ix = 0; ix < sizeof(data); ++ix)
     {
@@ -342,7 +347,7 @@ ConfigParameter<std::string>::write(ByteBuffer::iterator &it)
 
     *nextIt++ = value.length();
 
-    for (unsigned char ix = 0; ix < value.length(); ++ix)
+    for (size_t ix = 0; ix < value.length(); ++ix)
     {
         *nextIt++ = value[ix];
     }

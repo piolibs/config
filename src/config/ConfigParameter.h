@@ -37,6 +37,17 @@ enum class ConfigParameterType {
     FLOAT
 };
 
+// Stored type of a value type, lets Config check the type without RTTI
+template <typename T> struct ConfigParameterTypeOf;
+
+template <> struct ConfigParameterTypeOf<char> { static constexpr auto value = ConfigParameterType::BYTE; };
+template <> struct ConfigParameterTypeOf<int> { static constexpr auto value = ConfigParameterType::NUMBER; };
+template <> struct ConfigParameterTypeOf<std::string> { static constexpr auto value = ConfigParameterType::STRING; };
+template <> struct ConfigParameterTypeOf<IPAddress> { static constexpr auto value = ConfigParameterType::IP_ADDRESS; };
+template <> struct ConfigParameterTypeOf<PersistCounter> { static constexpr auto value = ConfigParameterType::COUNTER; };
+template <> struct ConfigParameterTypeOf<float> { static constexpr auto value = ConfigParameterType::FLOAT; };
+template <typename T> struct ConfigParameterTypeOf<std::vector<T>> { static constexpr auto value = ConfigParameterType::ARRAY; };
+
 class ConfigParameterBase {
 public:
     static const unsigned char INVALID_ID = (-1);
@@ -51,9 +62,13 @@ public:
     virtual ByteBuffer::iterator write(ByteBuffer::iterator& it);
 
 protected:
+    friend class Config;
+
     ConfigParameterType mType;
     unsigned char mId;
-    bool mIsValid;
+
+    // CRC of the value last read from or written to the journal, 0 if none
+    uint32_t mStoredCrc;
 };
 
 template <typename T>
@@ -180,7 +195,7 @@ ConfigParameter<std::vector<T>>::write(ByteBuffer::iterator &it) {
     *nextIt++ = vector.size();
 
     LOGI_ADD("write: id=%u, sz=%u, value={", getId(), vector.size());
-    for (unsigned char ix = 0; ix < vector.size(); ++ix)
+    for (size_t ix = 0; ix < vector.size(); ++ix)
     {
         LOGI_ADD(" %u", vector[ix]);
         for (unsigned char bx = 0; bx < sizeof(T); ++bx)

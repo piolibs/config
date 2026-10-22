@@ -10,5 +10,6 @@
 #pragma once
 
 #include <config/Config.h>
-#include <config/StorageEeprom.h>
+#include <config/Flash.h>
+#include <config/Journal.h>
 #include <config/PersistCounter.h>

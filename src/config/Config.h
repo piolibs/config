@@ -21,7 +21,7 @@
 
 #include "ConfigParameter.h"
 #include "ByteBuffer.h"
-#include "StorageEeprom.h"
+#include "Journal.h"
 
 namespace config {
 
@@ -73,9 +73,19 @@ public:
     template<typename T>
     bool set(unsigned char id, const T& value);
 
-    //--- Serialization ---
-    Config& read(ByteBuffer& buffer);
-    Config& write(ByteBuffer& buffer);
+    //--- Persistence ---
+
+    // Restore the values stored in the journal, parameters without a stored
+    // value keep their current values. Returns false if the journal is empty.
+    bool read(Journal& journal);
+
+    // Append the parameters changed since the last read/write. When the
+    // active sector is full, write a snapshot of all parameters instead.
+    bool write(Journal& journal);
+
+private:
+    size_t serialize(ConfigParameterBase& parameter, char* data, size_t size);
+    bool snapshot(Journal& journal);
 
 private:
     std::map<unsigned char, std::shared_ptr<ConfigParameterBase>> mParameters;
@@ -113,17 +123,26 @@ Config& Config::add(unsigned char id, const T &value)
 template <typename T>
 Config& Config::add(unsigned char id, T &&value)
 {
+    using Type = std::remove_reference_t<T>;
+
     auto it = mParameters.find(id);
+    if ((it != mParameters.end()) && (it->second->getType() != ConfigParameterTypeOf<Type>::value))
+    {
+        LOGW("%s: id=%u has another type, replace it", __func__, id);
+        mParameters.erase(it);
+        it = mParameters.end();
+    }
+
     if (it != mParameters.end())
     {
         LOGD("%s: id=%u found, update existing value", __func__, id);
-        auto ptr = std::static_pointer_cast<ConfigParameter<std::remove_reference_t<T>>>(it->second);
+        auto ptr = std::static_pointer_cast<ConfigParameter<Type>>(it->second);
         ptr->set(std::forward<T>(value));
     }
     else
     {
         LOGD("%s: id=%u not found, create new value", __func__, id);
-        auto ptr = std::make_shared<ConfigParameter<std::remove_reference_t<T>>>(id, std::forward<T>(value));
+        auto ptr = std::make_shared<ConfigParameter<Type>>(id, std::forward<T>(value));
         mParameters.insert({id, ptr});
     }
 
@@ -137,6 +156,12 @@ T* Config::find(unsigned char id) const
     if (it == mParameters.end())
     {
         LOGV("%s: id=%u not found", __func__, id);
+        return nullptr;
+    }
+
+    if (it->second->getType() != ConfigParameterTypeOf<T>::value)
+    {
+        LOGE("%s: id=%u has another type", __func__, id);
         return nullptr;
     }
 
@@ -166,9 +191,9 @@ template <typename T>
 T& Config::value(unsigned char id)
 {
     auto it = mParameters.find(id);
-    if (it == mParameters.end())
+    if ((it == mParameters.end()) || (it->second->getType() != ConfigParameterTypeOf<T>::value))
     {
-        LOGE("%s: id=%u not found", __func__, id);
+        LOGE("%s: id=%u not found or has another type", __func__, id);
         assert(false);
     }
     return std::static_pointer_cast<ConfigParameter<T>>(it->second)->value();
@@ -179,9 +204,9 @@ const T& Config::value(unsigned char id) const
 {
     LOGV("%s", __func__);
     auto it = mParameters.find(id);
-    if (it == mParameters.end())
+    if ((it == mParameters.end()) || (it->second->getType() != ConfigParameterTypeOf<T>::value))
     {
-        LOGE("%s: id=%u not found", __func__, id);
+        LOGE("%s: id=%u not found or has another type", __func__, id);
         assert(false);
     }
     return std::static_pointer_cast<ConfigParameter<T>>(it->second)->value();

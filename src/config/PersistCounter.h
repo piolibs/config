@@ -19,13 +19,14 @@
 
 namespace config
 {
+    // Unsigned counter value; wear of frequent updates is handled by the Journal
     class PersistCounter
     {
     public:
         using Type = unsigned int;
         static_assert(std::is_unsigned_v<Type>, "Must be unsigned!");
 
-        PersistCounter(Type value, unsigned char capacity = 1);
+        PersistCounter(Type value = 0);
         ~PersistCounter() = default;
 
         PersistCounter(const PersistCounter &) = default;
@@ -43,14 +44,7 @@ namespace config
         void set(Type value);
 
     private:
-        static constexpr char FLAG = 0x80;
-        static constexpr Type MASK = (Type)(-1UL) >> 2;
-
-    private:
         Type mValue;
-
-        unsigned char mCapacity;
-        unsigned char mSlot;
     };
 
 } // namespace
